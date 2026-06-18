@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Follow-Up de Pedidos — Suprimentos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+const DRIVE_URL = 'https://raw.githubusercontent.com/SKB-Dashboard/followup-dashboard/main/Followup_v8_7.xlsx';
+
+function carregarDrive(){
+  const btn = document.getElementById('btn-drive-txt');
+  if(btn) btn.textContent = '⏳ Atualizando...';
+  
+  fetch(DRIVE_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Erro ao buscar arquivo: ' + r.status);
+      return r.arrayBuffer();
+    })
+    .then(buffer => {
+      try{
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array', cellDates:true});
+        const nomeFU = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FOLLOW_UP');
+        if(!nomeFU){ toast('❌ Aba FOLLOW_UP não encontrada'); return; }
+        const ws = wb.Sheets[nomeFU];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        pedidos = [];
+        for(let i=2; i<rows.length; i++){
+          const r = rows[i];
+          if(!r || (!r[0] && !r[1])) continue;
+          function ts(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+          const p = {
+            data:        fmtData(r[0]),
+            numero:      ts(r[1]),
+            codForn:     ts(r[2]),
+            fornecedor:  ts(r[3]),
+            status:      ts(r[4]),
+            prevEntrega: fmtData(r[5]),
+            osItem:      ts(r[6]).replace(/\n/g,' / '),
+            alerta:      ts(r[7]).toUpperCase(),
+            prioridade:  ts(r[8]),
+            novaPrevisao:fmtData(r[9]),
+            statusFollow:ts(r[10]),
+            contato:     fmtData(r[11]),
+            anotacoes:   ts(r[12]),
+          };
+          if(!p.numero && !p.fornecedor) continue;
+          if(p.numero && !/^\d/.test(p.numero.replace(/\D/g,''))) continue;
+          pedidos.push(p);
+        }
+        render();
+        salvar();
+        const agora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        toast(`✅ ${pedidos.length} pedidos atualizados · ${agora}`);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }catch(err){
+        toast('❌ Erro: ' + err.message);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }
+    })
+    .catch(err => {
+      // CORS bloqueado — fallback para importação manual
+      toast('⚠ Erro ao carregar — tente novamente');
+      if(btn) btn.textContent = '🔄 Atualizar Dados';
+      
+    });
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
+const DRIVE_URL = 'https://raw.githubusercontent.com/SKB-Dashboard/followup-dashboard/main/Followup_v8_7.xlsx';
+
+function carregarDrive(){
+  const btn = document.getElementById('btn-drive-txt');
+  if(btn) btn.textContent = '⏳ Atualizando...';
+  
+  fetch(DRIVE_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Erro ao buscar arquivo: ' + r.status);
+      return r.arrayBuffer();
+    })
+    .then(buffer => {
+      try{
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array', cellDates:true});
+        const nomeFU = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FOLLOW_UP');
+        if(!nomeFU){ toast('❌ Aba FOLLOW_UP não encontrada'); return; }
+        const ws = wb.Sheets[nomeFU];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        pedidos = [];
+        for(let i=2; i<rows.length; i++){
+          const r = rows[i];
+          if(!r || (!r[0] && !r[1])) continue;
+          function ts(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+          const p = {
+            data:        fmtData(r[0]),
+            numero:      ts(r[1]),
+            codForn:     ts(r[2]),
+            fornecedor:  ts(r[3]),
+            status:      ts(r[4]),
+            prevEntrega: fmtData(r[5]),
+            osItem:      ts(r[6]).replace(/\n/g,' / '),
+            alerta:      ts(r[7]).toUpperCase(),
+            prioridade:  ts(r[8]),
+            novaPrevisao:fmtData(r[9]),
+            statusFollow:ts(r[10]),
+            contato:     fmtData(r[11]),
+            anotacoes:   ts(r[12]),
+          };
+          if(!p.numero && !p.fornecedor) continue;
+          if(p.numero && !/^\d/.test(p.numero.replace(/\D/g,''))) continue;
+          pedidos.push(p);
+        }
+        render();
+        salvar();
+        const agora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        toast(`✅ ${pedidos.length} pedidos atualizados · ${agora}`);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }catch(err){
+        toast('❌ Erro: ' + err.message);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }
+    })
+    .catch(err => {
+      // CORS bloqueado — fallback para importação manual
+      toast('⚠ Erro ao carregar — tente novamente');
+      if(btn) btn.textContent = '🔄 Atualizar Dados';
+      
+    });
+}
+
+</script>
+<style>
+:root{
+  --az:#0f2240;--az2:#0d9b99;--az3:#2563a8;--bg:#f0f4f8;--card:#fff;
+  --borda:#d1d9e6;--leve:#718096;
+  --r:#c0392b;--r-bg:#fdecea;--o:#d35400;--o-bg:#fef3eb;
+  --y:#b7791f;--y-bg:#fefce8;--g:#1a6e3b;--g-bg:#eefbf3;
+  --e:#1e4e79;--e-bg:#eff6ff;--p:#8b6914;--p-bg:#fff9c4;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif}
+body{background:#0d9b99;color:var(--az);min-height:100vh}
+header{background:var(--az2);height:52px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.hlogo{color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;gap:9px}
+.hdata{font-size:11px;color:rgba(255,255,255,.8);font-family:monospace}
+main{max-width:1600px;margin:0 auto;padding:10px 14px 40px}
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:260px 1fr 210px;gap:10px;align-items:start}
+.col-graf{display:flex;flex-direction:column;gap:10px;position:sticky;top:62px}
+.col-center{display:flex;flex-direction:column;gap:8px;min-width:0}
+.col-dir{display:flex;flex-direction:column;gap:10px;position:sticky;top:62px}
+/* CARDS */
+.gcard-sm{background:rgba(255,255,255,.97);border-radius:12px;padding:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);position:relative}
+.gtit{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--leve);margin-bottom:10px}
+/* TABELA */
+.tw{background:rgba(255,255,255,.97);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.12);overflow:hidden}
+.tw-hdr{padding:10px 16px;border-bottom:1px solid var(--borda)}
+.tw-tit{font-size:13px;font-weight:600}
+.tscroll{overflow:auto;max-height:calc(100vh - 115px)}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead th{background:var(--az2);color:#fff;font-weight:600;font-size:9px;
+  text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;
+  text-align:left;white-space:nowrap;position:sticky;top:0;z-index:10;cursor:pointer}
+thead th.fu{background:var(--az3)}
+thead th:hover{filter:brightness(1.1)}
+tbody tr{border-bottom:1px solid var(--borda)}
+tbody td{padding:5px 8px;vertical-align:middle}
+.forn{max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.mono{font-family:monospace}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.bv{background:var(--r-bg);color:var(--r)}.bo{background:var(--o-bg);color:var(--o)}
+.by{background:var(--y-bg);color:var(--y)}.bg{background:var(--g-bg);color:var(--g)}
+.be{background:var(--e-bg);color:var(--e)}.bp{background:var(--p-bg);color:var(--p)}
+.bs{background:var(--bg);color:var(--leve)}
+tr.rv td{background:var(--r-bg)!important}tr.ro td{background:var(--o-bg)!important}
+tr.ry td{background:var(--y-bg)!important}tr.rg td{background:var(--g-bg)!important}
+tr.re td{background:var(--e-bg)!important}tr.rp td{background:var(--p-bg)!important}
+.prior{display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700}
+.p-alta{background:#ffeaea;color:var(--r)}.p-media{background:#fff3e0;color:var(--o)}
+.p-baixa{background:#f0fff4;color:var(--g)}
+.empty td{text-align:center;padding:36px;color:var(--leve);font-size:13px}
+.sa{font-size:8px;margin-left:2px;opacity:.4}
+th.asc .sa::after{content:'▲';opacity:1}th.desc .sa::after{content:'▼';opacity:1}
+th.asc .sa,th.desc .sa{opacity:1}
+/* FATIVO */
+.fativo{background:rgba(255,251,235,.97);border-radius:6px;padding:5px 10px;
+  font-size:11px;color:var(--y);display:flex;align-items:center;gap:6px;border:1px solid #fde68a}
+.fativo-btn{background:none;border:none;color:var(--r);cursor:pointer;font-size:11px;font-weight:700;margin-left:auto}
+/* SCROLL */
+.gcard-scroll{max-height:280px;min-height:80px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--borda) transparent}
+.gcard-scroll::-webkit-scrollbar{width:4px}
+.gcard-scroll::-webkit-scrollbar-thumb{background:var(--borda);border-radius:2px}
+/* BARRAS */
+.barras{display:flex;flex-direction:column;gap:7px;overflow:visible}
+.bitem{display:flex;flex-direction:column;gap:2px}
+.blbl{display:flex;justify-content:space-between;font-size:11px}
+.bnome{color:var(--az);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.bval{color:var(--leve);font-family:monospace;font-size:11px}
+.btrack{height:9px;background:#e2e8f0;border-radius:5px;overflow:hidden}
+.bfill{height:100%;border-radius:5px;width:0;transition:width .7s cubic-bezier(.4,0,.2,1)}
+/* ATENÇÃO */
+.atencao-item{padding:6px 0;border-bottom:1px solid var(--borda);display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.atencao-item:last-child{border-bottom:none}
+.atencao-item:hover{background:var(--bg);border-radius:4px;padding-left:4px}
+.atencao-fornecedor{font-size:11px;font-weight:600;color:var(--az);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atencao-detalhe{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--leve)}
+/* FILTROS */
+.fcollapse{overflow:hidden;max-height:0;opacity:0;transition:max-height .35s,opacity .3s}
+/* TOAST */
+.toast{position:fixed;bottom:18px;right:18px;background:var(--az);color:#fff;
+  padding:8px 16px;border-radius:6px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.3);
+  transform:translateY(60px);opacity:0;transition:all .25s;z-index:300}
+.toast.show{transform:translateY(0);opacity:1}
+/* SHIMMER */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes scan{0%{top:-10%}100%{top:110%}}
+
+.car-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px}
+.car-slide{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;transition:opacity .4s,transform .4s}
+.car-slide.out{opacity:0;transform:translateY(-14px)}.car-slide.in{opacity:0;transform:translateY(14px)}
+.car-val{font-family:monospace;font-size:36px;font-weight:700;line-height:1}
+.car-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px}
+.car-pct{font-size:10px;color:var(--leve)}
+.cdots{display:flex;gap:4px;margin-top:3px}
+.cdot{width:5px;height:5px;border-radius:50%;background:var(--borda);cursor:pointer;border:none;padding:0;transition:all .3s}
+.cdot.on{width:14px;border-radius:3px}
+@keyframes vib{0%,100%{transform:translate(0,0) rotate(0)}20%{transform:translate(-4px,2px) rotate(-4deg)}40%{transform:translate(4px,-2px) rotate(4deg)}60%{transform:translate(-3px,1px) rotate(-2deg)}80%{transform:translate(3px,-1px) rotate(2deg)}}
+@keyframes trem{0%,100%{transform:rotate(0) scale(1)}25%{transform:rotate(-12deg) scale(1.06)}75%{transform:rotate(12deg) scale(1.06)}}
+@keyframes puls{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0px currentColor)}50%{transform:scale(1.18);filter:drop-shadow(0 0 10px currentColor)}}
+@keyframes salt{0%,100%{transform:translateY(0) scaleX(1)}30%{transform:translateY(-18px) scaleX(.93)}55%{transform:translateY(-20px) scaleX(.91)}70%{transform:translateY(-4px) scaleX(1.06)}}
+@keyframes brilh{0%,100%{opacity:.6;filter:brightness(1)}50%{opacity:1;filter:brightness(1.4) drop-shadow(0 0 8px currentColor)}}
+@keyframes ondula{0%,100%{transform:scaleY(1) translateY(0)}25%{transform:scaleY(1.12) translateY(-4px)}75%{transform:scaleY(.9) translateY(4px)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hlogo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="3" width="20" height="18" rx="2" stroke="#fff" stroke-width="1.8"/>
+      <path d="M7 8h10M7 12h10M7 16h6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    Suprimentos · Follow-Up de Pedidos
+  </div>
+  <div class="hdata" id="hdata"></div>
+</header>
+<main>
+<div class="layout">
+
+  <!-- ESQUERDA: Gráficos -->
+  <div class="col-graf">
+
+    <!-- Carrossel Alertas -->
+    <div class="gcard-sm">
+      <div class="gtit">Alertas</div>
+      <div class="car-wrap">
+        <div class="car-slide" id="car-slide"></div>
+        <div class="cdots" id="cdots"></div>
+      </div>
+    </div>
+
+    <!-- Distribuição por Alerta - Rosca -->
+    <div class="gcard-sm">
+      <div class="gtit">Distribuição por Alerta</div>
+      <div style="position:relative;height:160px;width:100%">
+        <canvas id="cv-rosca"></canvas>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
+          <div id="rosca-total" style="font-family:monospace;font-size:28px;font-weight:700;color:var(--az);line-height:1">0</div>
+          <div style="font-size:8px;color:var(--leve);text-transform:uppercase;letter-spacing:.5px">Total</div>
+        </div>
+      </div>
+      <div id="alerta-kpis" style="display:flex;flex-direction:column;gap:4px;margin-top:8px"></div>
+    </div>
+
+    <!-- Filtros colapsável -->
+    <div class="gcard-sm" style="padding:10px 14px">
+      <button onclick="toggleFiltros()" style="width:100%;background:none;border:none;cursor:pointer;
+        display:flex;align-items:center;justify-content:space-between;padding:0">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--leve)">⚙ Filtros</span>
+        <span id="fi-ico" style="font-size:9px;color:var(--leve);transition:transform .3s">▼</span>
+      </button>
+      <div id="fcollapse" style="overflow:hidden;max-height:0;opacity:0;transition:max-height .35s,opacity .3s">
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:10px">
+          <input type="text" id="fq" placeholder="🔍 Buscar..." oninput="render()"
+            style="font-size:11px;border:1px solid var(--borda);border-radius:6px;padding:6px 10px;
+            background:var(--bg);color:var(--az);outline:none;width:100%">
+          <select id="fsf" onchange="render()"
+            style="font-size:11px;border:1px solid var(--borda);border-radius:6px;padding:6px 8px;
+            background:var(--bg);color:var(--az);outline:none;width:100%">
+            <option value="">Status Follow — Todos</option>
+            <option>Aguardando Retorno</option><option>Fornecedor Confirmou</option>
+            <option>Em Transito</option><option>Entregue</option>
+            <option>Parcial</option><option>Cancelado</option>
+          </select>
+          <select id="fpr" onchange="render()"
+            style="font-size:11px;border:1px solid var(--borda);border-radius:6px;padding:6px 8px;
+            background:var(--bg);color:var(--az);outline:none;width:100%">
+            <option value="">Prioridade — Todas</option>
+            <option>Alta</option><option>Media</option><option>Baixa</option>
+          </select>
+          <button onclick="limpar()"
+            style="font-size:11px;border:none;border-radius:6px;padding:7px;
+            background:var(--r);color:#fff;cursor:pointer;font-weight:700;width:100%">
+            ✕ Limpar Filtros
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botão carregar -->
+    <div class="gcard-sm" onclick="carregarDrive()" id="btn-drive"
+      style="cursor:pointer;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+      <span id="btn-drive-txt" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--az2)">🔄 Atualizar Dados</span>
+    </div>
+    <input type="file" id="xlsx-inp" accept=".xlsx,.xls" onchange="lerXLSX(this)" style="display:none">
+
+  </div>
+
+  <!-- CENTRO: Tabela -->
+  <div class="col-center">
+    <div class="fativo" id="fativo" style="display:none">
+      <span id="fativo-txt"></span>
+      <button class="fativo-btn" onclick="kpiClick('')">✕ Limpar</button>
+    </div>
+    <div class="tw">
+      <div class="tw-hdr"><span class="tw-tit">Pedidos em Acompanhamento</span></div>
+      <div class="tscroll">
+        <table>
+          <thead><tr>
+            <th onclick="sortCol('data')">Data<span class="sa" id="sa-data"></span></th>
+            <th onclick="sortCol('numero')">Número<span class="sa" id="sa-numero"></span></th>
+            <th onclick="sortCol('codForn')">Cód.<span class="sa" id="sa-codForn"></span></th>
+            <th onclick="sortCol('fornecedor')">Fornecedor<span class="sa" id="sa-fornecedor"></span></th>
+            <th onclick="sortCol('status')">Status<span class="sa" id="sa-status"></span></th>
+            <th onclick="sortCol('prevEntrega')">Prev.Entrega<span class="sa" id="sa-prevEntrega"></span></th>
+            <th onclick="sortCol('osItem')">OS/Item<span class="sa" id="sa-osItem"></span></th>
+            <th onclick="sortCol('alerta')">Alerta<span class="sa" id="sa-alerta"></span></th>
+            <th class="fu">Prioridade</th>
+            <th class="fu">Nova Prev.</th>
+            <th class="fu">Status Follow</th>
+            <th class="fu">Contato</th>
+            <th class="fu">Anotações</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIREITA -->
+  <div class="col-dir">
+    <div class="gcard-sm">
+      <div class="gtit" style="color:var(--r)">⚠ Atenção Imediata</div>
+      <div class="gcard-scroll" id="atencao-lista" style="min-height:280px;max-height:280px">
+        <div style="font-size:11px;color:var(--leve);text-align:center;padding:20px 0">
+          Carregue a planilha para ver os pedidos urgentes
+        </div>
+      </div>
+    </div>
+    <div class="gcard-sm">
+      <div class="gtit">Pedidos por OS</div>
+      <div class="gcard-scroll"><div class="barras" id="barras-comp"></div></div>
+    </div>
+  </div>
+
+</div>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+// ── Estado ────────────────────────────────────────────────────────────
+let pedidos=[], kpiFil='', _sortCol='data', _sortDir=1;
+const LS='fuv8c';
+
+// ── Constantes ────────────────────────────────────────────────────────
+const AL_MAP={
+  'VENCIDO': ['🔴 Vencido','bv','rv'],
+  'CRITICO': ['🟠 Crítico','bo','ro'],
+  'ATENCAO': ['🟡 Atenção','by','ry'],
+  'PARCIAL': ['📦 Parcial','bp','rp'],
+  'NO PRAZO':['🟢 No Prazo','bg','rg'],
+  'ENTREGUE':['✅ Entregue','be','re'],
+  'CANCELADO':['❌ Cancelado','bs',''],
+  '':        ['⬜ —','bs',''],
+};
+const CORES_AL={
+  'VENCIDO':'#c0392b','CRITICO':'#d35400','ATENCAO':'#b7791f',
+  'PARCIAL':'#8b6914','NO PRAZO':'#1a6e3b','ENTREGUE':'#1e4e79',
+  'CANCELADO':'#718096','':'#a0aec0'
+};
+const AL_ORD={'VENCIDO':0,'CRITICO':1,'ATENCAO':2,'PARCIAL':3,'NO PRAZO':4,'ENTREGUE':5,'CANCELADO':6,'':7};
+
+// ── Header com hora ────────────────────────────────────────────────────
+function atualizarHora(){
+  const agora=new Date();
+  const data=agora.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const hora=agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const el=document.getElementById('hdata');
+  if(el) el.textContent=data+'  |  '+hora;
+}
+atualizarHora();
+setInterval(atualizarHora,1000);
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function badgeAl(al){const[t,c]=AL_MAP[al]||['—','bs'];return`<span class="badge ${c}">${t}</span>`;}
+function badgePr(p){if(!p)return'';const c=p==='Alta'?'p-alta':p==='Media'?'p-media':'p-baixa';return`<span class="prior ${c}">${p}</span>`;}
+function rowCls(al){return(AL_MAP[al]||['','',''])[2];}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function setStatus(t,m){}
+
+function parseData(v){
+  if(!v&&v!==0)return null;
+  if(v instanceof Date&&!isNaN(v))return v;
+  if(typeof v==='number'&&v>10000){const d=new Date(Date.UTC(1899,11,30));d.setUTCDate(d.getUTCDate()+Math.floor(v));return d;}
+  const s=String(v).trim();
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m)return new Date(+m[3],+m[2]-1,+m[1]);
+  return null;
+}
+function fmtData(v){
+  const d=parseData(v);if(!d)return'';
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+}
+
+// ── Ler XLSX ──────────────────────────────────────────────────────────
+function lerXLSX(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const nomeFU=wb.SheetNames.find(n=>n.trim().toUpperCase()==='FOLLOW_UP');
+      if(!nomeFU){toast('❌ Aba FOLLOW_UP não encontrada');return;}
+      const ws=wb.Sheets[nomeFU];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+      pedidos=[];
+      for(let i=2;i<rows.length;i++){
+        const r=rows[i];
+        if(!r||(!r[0]&&!r[1]))continue;
+        function ts(v){return(v===null||v===undefined)?'':String(v).trim();}
+        const p={
+          data:        fmtData(r[0]),
+          numero:      ts(r[1]),
+          codForn:     ts(r[2]),
+          fornecedor:  ts(r[3]),
+          status:      ts(r[4]),
+          prevEntrega: fmtData(r[5]),
+          osItem:      ts(r[6]).replace(/\n/g,' / '),
+          alerta:      ts(r[7]).toUpperCase(),
+          prioridade:  ts(r[8]),
+          novaPrevisao:fmtData(r[9]),
+          statusFollow:ts(r[10]),
+          contato:     fmtData(r[11]),
+          anotacoes:   ts(r[12]),
+        };
+        if(!p.numero&&!p.fornecedor)continue;
+        if(p.numero&&!/^\d/.test(p.numero.replace(/\D/g,'')))continue;
+        pedidos.push(p);
+      }
+      render();
+      salvar();
+      const agora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      toast(`${pedidos.length} pedidos carregados · ${agora}`);
+    }catch(err){toast('❌ Erro: '+err.message);console.error(err);}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── KPIs e Gráficos ───────────────────────────────────────────────────
+let _chartRosca=null;
+const SVGS={
+  'VENCIDO':`<svg viewBox="0 0 64 64" fill="none"><rect x="14" y="44" width="36" height="8" rx="3" fill="#c0392b"/><rect x="20" y="37" width="24" height="8" rx="2" fill="#e74c3c"/><path d="M16 37Q16 18 32 16Q48 18 48 37Z" fill="#e74c3c"/><ellipse cx="32" cy="28" rx="7" ry="6" fill="#ff6b6b"/><line x1="32" y1="4" x2="32" y2="12" stroke="#e74c3c" stroke-width="3" stroke-linecap="round"/><line x1="12" y1="15" x2="17" y2="20" stroke="#e74c3c" stroke-width="2.5" stroke-linecap="round"/><line x1="52" y1="15" x2="47" y2="20" stroke="#e74c3c" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+  'CRITICO':`<svg viewBox="0 0 64 64" fill="none"><path d="M32 6L58 54H6Z" fill="#d35400" opacity=".15" stroke="#d35400" stroke-width="2" stroke-linejoin="round"/><rect x="29" y="24" width="6" height="16" rx="3" fill="#d35400"/><circle cx="32" cy="46" r="4" fill="#d35400"/><circle cx="50" cy="16" r="10" fill="white" stroke="#d35400" stroke-width="1.5"/><line x1="50" y1="11" x2="50" y2="16" stroke="#d35400" stroke-width="2" stroke-linecap="round"/><line x1="50" y1="16" x2="54" y2="19" stroke="#d35400" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  'ATENCAO':`<svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="36" r="22" fill="#fffbeb" stroke="#b7791f" stroke-width="2"/><circle cx="32" cy="36" r="17" fill="#fef9ec" stroke="#b7791f" stroke-width="1" stroke-dasharray="3 2"/><line x1="32" y1="36" x2="35" y2="22" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"/><line x1="32" y1="36" x2="42" y2="39" stroke="#b7791f" stroke-width="2" stroke-linecap="round"/><circle cx="32" cy="36" r="2.5" fill="#92400e"/><rect x="30" y="8" width="4" height="6" rx="2" fill="#b7791f"/></svg>`,
+  'NO PRAZO':`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><!-- Corpo do calendário --><rect x="6" y="14" width="52" height="44" rx="6" fill="#e8f8f0" stroke="#1a6e3b" stroke-width="2"/><!-- Cabeçalho verde --><rect x="6" y="14" width="52" height="16" rx="6" fill="#1a6e3b"/><rect x="6" y="22" width="52" height="8" fill="#1a6e3b"/><!-- Argolas --><rect x="18" y="8" width="5" height="12" rx="2.5" fill="#27ae60"/><rect x="41" y="8" width="5" height="12" rx="2.5" fill="#27ae60"/><!-- Linhas de dias (grid) --><line x1="14" y1="42" x2="50" y2="42" stroke="#b2dfce" stroke-width="1" opacity=".6"/><line x1="14" y1="52" x2="50" y2="52" stroke="#b2dfce" stroke-width="1" opacity=".6"/><!-- Círculo de check grande centralizado --><circle cx="32" cy="44" r="13" fill="#27ae60"/><circle cx="32" cy="44" r="10" fill="#1a6e3b"/><!-- Check mark --><path d="M25 44 L30 49 L39 38" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/><!-- Brilho no cabeçalho --><rect x="10" y="16" width="20" height="3" rx="1.5" fill="rgba(255,255,255,.15)"/></svg>`,
+  'ENTREGUE':`<svg viewBox="0 0 64 64" fill="none"><ellipse cx="32" cy="61" rx="22" ry="3" fill="#8B5A1A" opacity=".18"/><rect x="10" y="30" width="44" height="28" rx="2" fill="#C4862A"/><path d="M54 30 L60 24 L60 52 L54 58 Z" fill="#A0681A"/><path d="M10 30 L16 24 L60 24 L54 30 Z" fill="#D4963A"/><path d="M10 30 L16 24 L38 24 L32 30 Z" fill="#E8B86D"/><path d="M54 30 L60 24 L42 24 L36 30 Z" fill="#C4862A" opacity=".8"/><rect x="10" y="41" width="44" height="5" rx="1" fill="#A0681A" opacity=".5"/><rect x="29" y="30" width="6" height="28" rx="1" fill="#A0681A" opacity=".5"/><line x1="18" y1="30" x2="18" y2="58" stroke="#A0681A" stroke-width="1" opacity=".4"/><line x1="46" y1="30" x2="46" y2="58" stroke="#A0681A" stroke-width="1" opacity=".4"/><circle cx="50" cy="18" r="11" fill="#1a6e3b"/><circle cx="50" cy="18" r="8.5" fill="#27ae60"/><path d="M44 18 L48 22 L56 12" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+  'PARCIAL':`<svg viewBox="0 0 64 64" fill="none"><rect x="10" y="12" width="40" height="48" rx="4" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.5"/><rect x="22" y="6" width="20" height="10" rx="5" fill="#94a3b8"/><rect x="26" y="8" width="12" height="6" rx="3" fill="#cbd5e1"/><rect x="16" y="24" width="8" height="8" rx="1.5" fill="white" stroke="#94a3b8" stroke-width="1"/><rect x="16" y="36" width="8" height="8" rx="1.5" fill="white" stroke="#94a3b8" stroke-width="1"/><rect x="28" y="26" width="18" height="2.5" rx="1" fill="#94a3b8"/><rect x="28" y="38" width="14" height="2.5" rx="1" fill="#94a3b8" opacity=".7"/><path d="M30 51 L34 44 L38 51 Z" fill="#8b6914"/><rect x="33" y="42" width="2" height="6" rx="1" fill="#8b6914"/></svg>`,
+  'CANCELADO':`<svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="26" fill="#e8e8e8" stroke="#718096" stroke-width="2"/><line x1="20" y1="20" x2="44" y2="44" stroke="#718096" stroke-width="4" stroke-linecap="round"/><line x1="44" y1="20" x2="20" y2="44" stroke="#718096" stroke-width="4" stroke-linecap="round"/></svg>`,
+};
+const CAR_ANIMS={
+  'VENCIDO':  'vib .4s ease-in-out infinite',
+  'CRITICO':  'trem .6s ease-in-out infinite',
+  'ATENCAO':  'puls 1.4s ease-in-out infinite',
+  'NO PRAZO': 'salt 1.8s ease-in-out infinite',
+  'ENTREGUE': 'brilh 1.5s ease-in-out infinite',
+  'PARCIAL':  'ondula 2s ease-in-out infinite',
+  'CANCELADO':'puls 3s ease-in-out infinite',
+};
+
+let _carIdx=0, _carTimer=null, _carDados=[];
+
+function buildCarSlide(idx){
+  const d=_carDados[idx];
+  const total=_carDados.reduce((s,x)=>s+x.v,0);
+  const pct=total>0?Math.round(d.v/total*100):0;
+  const svg=SVGS[d.k]||'';
+  const anim=CAR_ANIMS[d.k]||'puls 2s infinite';
+  return`<div style="width:90px;height:90px;animation:${anim};display:inline-block">${svg}</div>
+    <span class="car-val" style="color:${CORES_AL[d.k]}">${d.v}</span>
+    <span class="car-lbl" style="color:${CORES_AL[d.k]}">${AL_MAP[d.k]?AL_MAP[d.k][0]:d.k}</span>
+    <span class="car-pct">${pct}% do total</span>`;
+}
+
+function carIr(idx){
+  const sl=document.getElementById('car-slide');
+  if(!sl||!_carDados.length)return;
+  _carIdx=(_carDados.length+idx)%_carDados.length;
+  sl.classList.add('out');
+  setTimeout(()=>{
+    sl.innerHTML=buildCarSlide(_carIdx);
+    sl.classList.remove('out');sl.classList.add('in');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>sl.classList.remove('in')));
+    document.querySelectorAll('.cdot').forEach((d,i)=>{
+      d.classList.toggle('on',i===_carIdx);
+      d.style.background=i===_carIdx?CORES_AL[_carDados[_carIdx].k]:'';
+    });
+  },360);
+}
+
+function iniciarCarrossel(ct){
+  if(_carTimer)clearInterval(_carTimer);
+  _carDados=Object.entries(ct).filter(([k,v])=>v>0).map(([k,v])=>({k,v}));
+  if(!_carDados.length)return;
+  const dots=document.getElementById('cdots');
+  if(dots)dots.innerHTML=_carDados.map((d,i)=>
+    `<button class="cdot${i===0?' on':''}" onclick="carIr(${i})" style="${i===0?'background:'+CORES_AL[d.k]:''}"></button>`
+  ).join('');
+  _carIdx=0;
+  const sl=document.getElementById('car-slide');
+  if(sl)sl.innerHTML=buildCarSlide(0);
+  _carTimer=setInterval(()=>carIr(_carIdx+1),2500);
+}
+
+
+function atualizarKPIs(){
+  const ct={'VENCIDO':0,'CRITICO':0,'ATENCAO':0,'NO PRAZO':0,'ENTREGUE':0,'PARCIAL':0,'CANCELADO':0};
+  const comp={};
+  pedidos.forEach(p=>{
+    if(ct[p.alerta]!==undefined)ct[p.alerta]++;
+    const oss=(p.osItem||'').split('/').map(o=>o.trim()).filter(o=>o&&o!=='-');
+    if(oss.length>0){oss.forEach(o=>comp[o]=(comp[o]||0)+1);}
+  });
+  iniciarCarrossel(ct);
+  desenharRosca(ct);
+  renderAtencao();
+  const compItens=Object.entries(comp).map(([n,v])=>({n,v})).sort((a,b)=>b.v-a.v);
+  barras('barras-comp',compItens,()=>'#2563a8');
+}
+
+function desenharRosca(ct){
+  const cv=document.getElementById('cv-rosca');
+  if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const ativos=Object.entries(ct).filter(([k,v])=>v>0);
+  if(_chartRosca){_chartRosca.destroy();_chartRosca=null;}
+  const total=ativos.reduce((s,[,v])=>s+v,0);
+  const el=document.getElementById('rosca-total');
+  if(el)el.textContent=total;
+  if(!ativos.length)return;
+  _chartRosca=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:ativos.map(([k])=>AL_MAP[k]?AL_MAP[k][0]:k),
+      datasets:[{data:ativos.map(([,v])=>v),
+        backgroundColor:ativos.map(([k])=>CORES_AL[k]),
+        borderWidth:3,borderColor:'rgba(255,255,255,.9)',
+        hoverOffset:8,borderRadius:4,spacing:2}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed} (${Math.round(c.parsed/total*100)}%)`}}},
+      animation:{duration:800,easing:'easeInOutQuart'},
+      onClick:(e,els)=>{if(els.length){const al=ativos[els[0].index][0];kpiClick(al);}}}
+  });
+  // KPIs clicáveis
+  const grid=document.getElementById('alerta-kpis');
+  if(!grid)return;
+  grid.innerHTML=ativos.map(([k,v])=>{
+    const pct=Math.round(v/total*100);
+    return`<div onclick="kpiClick('${k}')" style="display:flex;align-items:center;
+      justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;
+      background:var(--bg);border-left:3px solid ${CORES_AL[k]};transition:transform .15s"
+      onmouseover="this.style.transform='translateX(3px)'"
+      onmouseout="this.style.transform=''">
+      <span style="font-size:11px;font-weight:700;color:${CORES_AL[k]}">${AL_MAP[k]?AL_MAP[k][0]:k}</span>
+      <span style="font-family:monospace;font-size:13px;font-weight:700;color:${CORES_AL[k]}">${v}
+        <span style="font-size:9px;color:var(--leve)">${pct}%</span>
+      </span></div>`;
+  }).join('');
+}
+
+function renderAtencao(){
+  const el=document.getElementById('atencao-lista');
+  if(!el)return;
+  const urgentes=pedidos
+    .filter(p=>p.alerta==='VENCIDO'||p.alerta==='CRITICO')
+    .sort((a,b)=>{
+      if(a.alerta!==b.alerta)return a.alerta==='VENCIDO'?-1:1;
+      function toN(s){const p=(s||'').split('/');return p.length===3?+p[2]+p[1]+p[0]:0;}
+      return toN(a.prevEntrega)-toN(b.prevEntrega);
+    });
+  if(!urgentes.length){
+    el.innerHTML='<div style="font-size:11px;color:var(--g);text-align:center;padding:16px 0">✅ Nenhum pedido urgente</div>';
+    return;
+  }
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  el.innerHTML=urgentes.map(p=>{
+    const ref=parseData(p.novaPrevisao||p.prevEntrega);
+    const dias=ref?Math.floor((hoje-ref)/86400000):0;
+    const badge=p.alerta==='VENCIDO'
+      ?`<span style="color:var(--r);font-weight:700">🔴 +${dias}d</span>`
+      :`<span style="color:var(--o);font-weight:700">🟠 Crítico</span>`;
+    return`<div class="atencao-item" onclick="kpiClick('${p.alerta}')">
+      <div class="atencao-fornecedor" title="${esc(p.fornecedor)}">${esc(p.fornecedor)||p.numero}</div>
+      <div class="atencao-detalhe">
+        ${badge}<span>${p.numero}</span>
+        <span style="margin-left:auto">${p.prevEntrega||'—'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Barras ────────────────────────────────────────────────────────────
+function barras(id,itens,corFn){
+  const el=document.getElementById(id);if(!el)return;
+  const max=Math.max(...itens.map(i=>i.v),1);
+  el.innerHTML=itens.map(i=>`<div class="bitem">
+    <div class="blbl"><span class="bnome" title="${i.n}">${i.n}</span><span class="bval">${i.v}</span></div>
+    <div class="btrack"><div class="bfill" data-p="${Math.round(i.v/max*100)}" style="background:${corFn(i)}"></div></div>
+  </div>`).join('');
+  requestAnimationFrame(()=>el.querySelectorAll('.bfill').forEach(b=>b.style.width=b.dataset.p+'%'));
+}
+
+// ── Ordenação ─────────────────────────────────────────────────────────
+function sortCol(campo){
+  if(_sortCol===campo)_sortDir*=-1;else{_sortCol=campo;_sortDir=1;}
+  document.querySelectorAll('thead th[onclick]').forEach(th=>th.classList.remove('asc','desc'));
+  const th=document.querySelector(`th[onclick="sortCol('${campo}')"]`);
+  if(th)th.classList.add(_sortDir===1?'asc':'desc');
+  render();
+}
+function sortLista(lista){
+  if(!_sortCol)return lista;
+  return[...lista].sort((a,b)=>{
+    let va=a[_sortCol]||'',vb=b[_sortCol]||'';
+    if(_sortCol==='alerta'){va=AL_ORD[va]??9;vb=AL_ORD[vb]??9;return(va-vb)*_sortDir;}
+    if(['data','prevEntrega','novaPrevisao','contato'].includes(_sortCol)){
+      function toN(s){const p=(s||'').split('/');return p.length===3?+p[2]+p[1]+p[0]:0;}
+      va=toN(va);vb=toN(vb);return(va-vb)*_sortDir;
+    }
+    va=va.toString().toLowerCase();vb=vb.toString().toLowerCase();
+    return va<vb?-_sortDir:va>vb?_sortDir:0;
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function render(){
+  const q  =document.getElementById('fq')?.value.toLowerCase()||'';
+  const al =kpiFil;
+  const sf =document.getElementById('fsf')?.value||'';
+  const pr =document.getElementById('fpr')?.value||'';
+  let lista=pedidos.filter(p=>{
+    if(al&&p.alerta!==al)return false;
+    if(sf&&p.statusFollow!==sf)return false;
+    if(pr&&p.prioridade!==pr)return false;
+    if(q){const t=[p.numero,p.fornecedor,p.osItem,p.anotacoes].join(' ').toLowerCase();if(!t.includes(q))return false;}
+    return true;
+  });
+  lista=sortLista(lista);
+  atualizarKPIs();
+  const tbody=document.getElementById('tbody');
+  if(!tbody)return;
+  if(!lista.length){
+    tbody.innerHTML='<tr class="empty"><td colspan="13">Nenhum pedido com os filtros selecionados.</td></tr>';
+    return;
+  }
+  tbody.innerHTML=lista.map(p=>{
+    const rc=rowCls(p.alerta);
+    return`<tr class="${rc}">
+      <td class="mono">${p.data}</td>
+      <td class="mono">${p.numero}</td>
+      <td style="font-size:10px">${p.codForn}</td>
+      <td class="forn" title="${esc(p.fornecedor)}">${esc(p.fornecedor)}</td>
+      <td style="font-size:10px;color:var(--leve)">${p.status}</td>
+      <td class="mono">${p.prevEntrega}</td>
+      <td style="font-size:10px">${esc(p.osItem)}</td>
+      <td>${badgeAl(p.alerta)}</td>
+      <td>${badgePr(p.prioridade)}</td>
+      <td class="mono" style="font-size:10px">${p.novaPrevisao||'—'}</td>
+      <td style="font-size:10px">${p.statusFollow||'—'}</td>
+      <td class="mono" style="font-size:10px">${p.contato||'—'}</td>
+      <td style="font-size:10px;max-width:180px" title="${esc(p.anotacoes)}">${esc(p.anotacoes)||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── kpiClick ──────────────────────────────────────────────────────────
+function kpiClick(al){
+  kpiFil=al;
+  const fativo=document.getElementById('fativo');
+  const nomes={'VENCIDO':'🔴 Vencidos','CRITICO':'🟠 Críticos','ATENCAO':'🟡 Atenção',
+    'NO PRAZO':'🟢 No Prazo','ENTREGUE':'✅ Entregues','PARCIAL':'📦 Parciais','CANCELADO':'❌ Cancelados'};
+  if(fativo){
+    if(al){fativo.style.display='flex';document.getElementById('fativo-txt').textContent='Filtrando: '+(nomes[al]||al);}
+    else fativo.style.display='none';
+  }
+  render();
+}
+
+// ── Filtros ───────────────────────────────────────────────────────────
+function toggleFiltros(){
+  const c=document.getElementById('fcollapse');
+  const ico=document.getElementById('fi-ico');
+  if(!c)return;
+  const open=c.style.maxHeight==='0px'||c.style.maxHeight==='';
+  c.style.maxHeight=open?'400px':'0px';
+  c.style.opacity=open?'1':'0';
+  if(ico)ico.style.transform=open?'rotate(180deg)':'';
+}
+function limpar(){
+  kpiFil='';
+  const fativo=document.getElementById('fativo');if(fativo)fativo.style.display='none';
+  ['fq','fsf','fpr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  render();
+}
+
+// ── Cache ─────────────────────────────────────────────────────────────
+function salvar(){try{localStorage.setItem(LS,JSON.stringify(pedidos));}catch(e){}}
+function carregar(){try{const s=localStorage.getItem(LS);if(s){pedidos=JSON.parse(s);return true;}}catch(e){}return false;}
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ── Init ──────────────────────────────────────────────────────────────
+window.addEventListener('load',function(){
+  if(carregar()&&pedidos.length){
+    render();
+    toast(`${pedidos.length} pedidos restaurados do cache`);
+  }
+  // Tenta atualizar do Drive automaticamente
+  carregarDrive();
+});
+
+const DRIVE_URL = 'https://raw.githubusercontent.com/SKB-Dashboard/followup-dashboard/main/Followup_v8_7.xlsx';
+
+function carregarDrive(){
+  const btn = document.getElementById('btn-drive-txt');
+  if(btn) btn.textContent = '⏳ Atualizando...';
+  
+  fetch(DRIVE_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Erro ao buscar arquivo: ' + r.status);
+      return r.arrayBuffer();
+    })
+    .then(buffer => {
+      try{
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array', cellDates:true});
+        const nomeFU = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FOLLOW_UP');
+        if(!nomeFU){ toast('❌ Aba FOLLOW_UP não encontrada'); return; }
+        const ws = wb.Sheets[nomeFU];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        pedidos = [];
+        for(let i=2; i<rows.length; i++){
+          const r = rows[i];
+          if(!r || (!r[0] && !r[1])) continue;
+          function ts(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+          const p = {
+            data:        fmtData(r[0]),
+            numero:      ts(r[1]),
+            codForn:     ts(r[2]),
+            fornecedor:  ts(r[3]),
+            status:      ts(r[4]),
+            prevEntrega: fmtData(r[5]),
+            osItem:      ts(r[6]).replace(/\n/g,' / '),
+            alerta:      ts(r[7]).toUpperCase(),
+            prioridade:  ts(r[8]),
+            novaPrevisao:fmtData(r[9]),
+            statusFollow:ts(r[10]),
+            contato:     fmtData(r[11]),
+            anotacoes:   ts(r[12]),
+          };
+          if(!p.numero && !p.fornecedor) continue;
+          if(p.numero && !/^\d/.test(p.numero.replace(/\D/g,''))) continue;
+          pedidos.push(p);
+        }
+        render();
+        salvar();
+        const agora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        toast(`✅ ${pedidos.length} pedidos atualizados · ${agora}`);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }catch(err){
+        toast('❌ Erro: ' + err.message);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }
+    })
+    .catch(err => {
+      // CORS bloqueado — fallback para importação manual
+      toast('⚠ Erro ao carregar — tente novamente');
+      if(btn) btn.textContent = '🔄 Atualizar Dados';
+      
+    });
+}
+
+</script>
+</body>
+</html>
