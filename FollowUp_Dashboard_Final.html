@@ -4,8 +4,130 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Follow-Up de Pedidos — Suprimentos</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+const DRIVE_URL = 'https://raw.githubusercontent.com/SKB-Dashboard/followup-dashboard/main/Followup_v8_7.xlsx';
+
+function carregarDrive(){
+  const btn = document.getElementById('btn-drive-txt');
+  if(btn) btn.textContent = '⏳ Atualizando...';
+  
+  fetch(DRIVE_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Erro ao buscar arquivo: ' + r.status);
+      return r.arrayBuffer();
+    })
+    .then(buffer => {
+      try{
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array', cellDates:true});
+        const nomeFU = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FOLLOW_UP');
+        if(!nomeFU){ toast('❌ Aba FOLLOW_UP não encontrada'); return; }
+        const ws = wb.Sheets[nomeFU];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        pedidos = [];
+        for(let i=2; i<rows.length; i++){
+          const r = rows[i];
+          if(!r || (!r[0] && !r[1])) continue;
+          function ts(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+          const p = {
+            data:        fmtData(r[0]),
+            numero:      ts(r[1]),
+            codForn:     ts(r[2]),
+            fornecedor:  ts(r[3]),
+            status:      ts(r[4]),
+            prevEntrega: fmtData(r[5]),
+            osItem:      ts(r[6]).replace(/\n/g,' / '),
+            alerta:      ts(r[7]).toUpperCase(),
+            prioridade:  ts(r[8]),
+            novaPrevisao:fmtData(r[9]),
+            statusFollow:ts(r[10]),
+            contato:     fmtData(r[11]),
+            anotacoes:   ts(r[12]),
+          };
+          if(!p.numero && !p.fornecedor) continue;
+          if(p.numero && !/^\d/.test(p.numero.replace(/\D/g,''))) continue;
+          pedidos.push(p);
+        }
+        render();
+        salvar();
+        const agora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        toast(`✅ ${pedidos.length} pedidos atualizados · ${agora}`);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }catch(err){
+        toast('❌ Erro: ' + err.message);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }
+    })
+    .catch(err => {
+      // CORS bloqueado — fallback para importação manual
+      toast('⚠ Erro ao carregar — tente novamente');
+      if(btn) btn.textContent = '🔄 Atualizar Dados';
+      
+    });
+}
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
+const DRIVE_URL = 'https://raw.githubusercontent.com/SKB-Dashboard/followup-dashboard/main/Followup_v8_7.xlsx';
+
+function carregarDrive(){
+  const btn = document.getElementById('btn-drive-txt');
+  if(btn) btn.textContent = '⏳ Atualizando...';
+  
+  fetch(DRIVE_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Erro ao buscar arquivo: ' + r.status);
+      return r.arrayBuffer();
+    })
+    .then(buffer => {
+      try{
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array', cellDates:true});
+        const nomeFU = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FOLLOW_UP');
+        if(!nomeFU){ toast('❌ Aba FOLLOW_UP não encontrada'); return; }
+        const ws = wb.Sheets[nomeFU];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        pedidos = [];
+        for(let i=2; i<rows.length; i++){
+          const r = rows[i];
+          if(!r || (!r[0] && !r[1])) continue;
+          function ts(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+          const p = {
+            data:        fmtData(r[0]),
+            numero:      ts(r[1]),
+            codForn:     ts(r[2]),
+            fornecedor:  ts(r[3]),
+            status:      ts(r[4]),
+            prevEntrega: fmtData(r[5]),
+            osItem:      ts(r[6]).replace(/\n/g,' / '),
+            alerta:      ts(r[7]).toUpperCase(),
+            prioridade:  ts(r[8]),
+            novaPrevisao:fmtData(r[9]),
+            statusFollow:ts(r[10]),
+            contato:     fmtData(r[11]),
+            anotacoes:   ts(r[12]),
+          };
+          if(!p.numero && !p.fornecedor) continue;
+          if(p.numero && !/^\d/.test(p.numero.replace(/\D/g,''))) continue;
+          pedidos.push(p);
+        }
+        render();
+        salvar();
+        const agora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        toast(`✅ ${pedidos.length} pedidos atualizados · ${agora}`);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }catch(err){
+        toast('❌ Erro: ' + err.message);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }
+    })
+    .catch(err => {
+      // CORS bloqueado — fallback para importação manual
+      toast('⚠ Erro ao carregar — tente novamente');
+      if(btn) btn.textContent = '🔄 Atualizar Dados';
+      
+    });
+}
+
+</script>
 <style>
 :root{
   --az:#0f2240;--az2:#0d9b99;--az3:#2563a8;--bg:#f0f4f8;--card:#fff;
@@ -188,11 +310,9 @@ th.asc .sa,th.desc .sa{opacity:1}
     </div>
 
     <!-- Botão carregar -->
-    <div class="gcard-sm" onclick="document.getElementById('xlsx-inp').click()"
+    <div class="gcard-sm" onclick="carregarDrive()" id="btn-drive"
       style="cursor:pointer;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--leve)">
-        📂 Carregar Follow-UP
-      </span>
+      <span id="btn-drive-txt" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--az2)">🔄 Atualizar Dados</span>
     </div>
     <input type="file" id="xlsx-inp" accept=".xlsx,.xls" onchange="lerXLSX(this)" style="display:none">
 
@@ -615,9 +735,72 @@ function toast(msg){const t=document.getElementById('toast');if(!t)return;t.text
 window.addEventListener('load',function(){
   if(carregar()&&pedidos.length){
     render();
-    toast(`${pedidos.length} pedidos restaurados`);
+    toast(`${pedidos.length} pedidos restaurados do cache`);
   }
+  // Tenta atualizar do Drive automaticamente
+  carregarDrive();
 });
+
+const DRIVE_URL = 'https://raw.githubusercontent.com/SKB-Dashboard/followup-dashboard/main/Followup_v8_7.xlsx';
+
+function carregarDrive(){
+  const btn = document.getElementById('btn-drive-txt');
+  if(btn) btn.textContent = '⏳ Atualizando...';
+  
+  fetch(DRIVE_URL)
+    .then(r => {
+      if(!r.ok) throw new Error('Erro ao buscar arquivo: ' + r.status);
+      return r.arrayBuffer();
+    })
+    .then(buffer => {
+      try{
+        const wb = XLSX.read(new Uint8Array(buffer), {type:'array', cellDates:true});
+        const nomeFU = wb.SheetNames.find(n => n.trim().toUpperCase() === 'FOLLOW_UP');
+        if(!nomeFU){ toast('❌ Aba FOLLOW_UP não encontrada'); return; }
+        const ws = wb.Sheets[nomeFU];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
+        pedidos = [];
+        for(let i=2; i<rows.length; i++){
+          const r = rows[i];
+          if(!r || (!r[0] && !r[1])) continue;
+          function ts(v){ return (v===null||v===undefined)?'':String(v).trim(); }
+          const p = {
+            data:        fmtData(r[0]),
+            numero:      ts(r[1]),
+            codForn:     ts(r[2]),
+            fornecedor:  ts(r[3]),
+            status:      ts(r[4]),
+            prevEntrega: fmtData(r[5]),
+            osItem:      ts(r[6]).replace(/\n/g,' / '),
+            alerta:      ts(r[7]).toUpperCase(),
+            prioridade:  ts(r[8]),
+            novaPrevisao:fmtData(r[9]),
+            statusFollow:ts(r[10]),
+            contato:     fmtData(r[11]),
+            anotacoes:   ts(r[12]),
+          };
+          if(!p.numero && !p.fornecedor) continue;
+          if(p.numero && !/^\d/.test(p.numero.replace(/\D/g,''))) continue;
+          pedidos.push(p);
+        }
+        render();
+        salvar();
+        const agora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+        toast(`✅ ${pedidos.length} pedidos atualizados · ${agora}`);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }catch(err){
+        toast('❌ Erro: ' + err.message);
+        if(btn) btn.textContent = '🔄 Atualizar Dados';
+      }
+    })
+    .catch(err => {
+      // CORS bloqueado — fallback para importação manual
+      toast('⚠ Erro ao carregar — tente novamente');
+      if(btn) btn.textContent = '🔄 Atualizar Dados';
+      
+    });
+}
+
 </script>
 </body>
 </html>
